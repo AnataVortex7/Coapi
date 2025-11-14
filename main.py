@@ -17,8 +17,14 @@ USER_VALIDITY = {
 # HEAD-MECHALE साठी विशेष user list (यात ज्या ids try करायच्या आहेत ते add करा)
 SPECIAL_USER_LIST = [
     # उदाहरण: "6050965589", "1193564058"
+    "7111644516",
+    "6251520627",
+    "953685850",
+    "7385595817",
+    "7200020975",
+    "8316601859",
+    "7547625729"
 ]
-
 # Covercel साठी main user optional (तू extract call मधून येणारा user_id वापरतोस तर ही ओव्हरराइड नाही करावी)
 # MAIN_USER = "6050965589"
 
@@ -157,7 +163,7 @@ async def extract(url: str, user_id: str = None, cptoken: str = None):
                 else:
                     return {"error": "Invalid Response"}
             except Exception:
-                return {"error": "Invalid  Response"}
+                return {"error": "Invalid Response"}
 
         # -----------------------------
         # COVERCEL (try only with provided user_id)
