@@ -1,29 +1,30 @@
 from fastapi import FastAPI
 import httpx
+import asyncio
 
 app = FastAPI()
 
-# Allowed users
+# Allowed user IDs
 ALLOWED_USERS = {"6050965589"}
+
 
 @app.get("/extract")
 async def extract(url: str, user_id: str = None, cptoken: str = None):
 
-    # Block unwanted users
+    # ❌ Block unauthorized users
     if user_id not in ALLOWED_USERS:
         return {"status": "not_allowed"}
 
     async with httpx.AsyncClient(timeout=60) as client:
-        tasks = []
 
-        # Covercel API
+        # ----------- Prepare URLs -----------
         covercel_url = (
             f"https://covercel.vercel.app/extract_keys?"
             f"url={url}@bots_updatee&user_id={user_id}"
         )
-        tasks.append(client.get(covercel_url))
 
-        # Drago API
+        tasks = [client.get(covercel_url)]  # Covercel always first
+
         if cptoken:
             drago_url = (
                 f"https://dragoapi.vercel.app/classplus?"
@@ -31,16 +32,23 @@ async def extract(url: str, user_id: str = None, cptoken: str = None):
             )
             tasks.append(client.get(drago_url))
 
-        # Run tasks concurrently (parallel)
-        responses = await httpx.AsyncClient.gather(*tasks)
+        # ------------ Run all requests concurrently -------------
+        responses = await asyncio.gather(*tasks, return_exceptions=True)
 
-    # Build response dynamically
+    # ------------ Build final JSON response -------------
     result = {}
 
-    if len(responses) >= 1:
-        result["Akshay"] = responses[0].json()
+    # Covercel response
+    try:
+        result["covercel"] = responses[0].json()
+    except:
+        result["covercel"] = {"error": "covercel_failed"}
 
-    if len(responses) == 2:
-        result["Akshay1"] = responses[1].json()
+    # Drago response (if requested)
+    if cptoken:
+        try:
+            result["classplus"] = responses[1].json()
+        except:
+            result["classplus"] = {"error": "classplus_failed"}
 
     return result
