@@ -56,6 +56,11 @@ def renew_user(admin_key: str, user_id: str, days: int = 30):
 
 
 # -----------------------------------------
+
+@app.get("/")
+def home():
+    return {"status": "running", "message": "API is live!"}
+    
 # ADMIN: Remove user
 # -----------------------------------------
 @app.post("/admin/remove_user")
@@ -69,6 +74,7 @@ def remove_user(admin_key: str, user_id: str):
         return {"status": "removed", "user_id": user_id}
 
     return {"error": "user_not_found"}
+    
 
 
 # -----------------------------------------
