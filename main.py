@@ -14,6 +14,13 @@ USER_VALIDITY = {
     "7268596608": "2099-12-30"
 }
 
+# HEAD-MECHALE साठी विशेष user list (यात ज्या ids try करायच्या आहेत ते add करा)
+SPECIAL_USER_LIST = [
+    # उदाहरण: "6050965589", "1193564058"
+]
+
+# Covercel साठी main user optional (तू extract call मधून येणारा user_id वापरतोस तर ही ओव्हरराइड नाही करावी)
+# MAIN_USER = "6050965589"
 
 def is_user_valid(user_id):
     if user_id not in USER_VALIDITY:
@@ -87,30 +94,105 @@ def list_users(admin_key: str):
         "total_users": len(USER_VALIDITY),
         "users": USER_VALIDITY
     }
+# -----------------------------------------
+@app.get("/admin/add_special_user")
+def add_special_user(admin_key: str, user_id: str):
+    if admin_key != ADMIN_KEY:
+        return {"error": "unauthorized"}
+
+    if user_id not in SPECIAL_USER_LIST:
+        SPECIAL_USER_LIST.append(user_id)
+
+    return {"status": "special_user_added", "special_users": SPECIAL_USER_LIST}
+ #----------------------------------------
+def clean_response(data):
+    if not isinstance(data, dict):
+        return None
+
+    # mpd extraction (possible names)
+    mpd = (
+        data.get("url") or
+        data.get("URL") or
+        data.get("mpd") or
+        data.get("MPD") or
+        data.get("mpd_url")
+    )
+
+    # key extraction (possible names)
+    key = (
+        data.get("keys") or
+        data.get("KEYS") or
+        data.get("key")
+    )
+
+    if mpd and not key:
+        return {"mpd": mpd}
+    if mpd and key:
+        return {"mpd": mpd, "key": key}
+
+    return None
 # MAIN EXTRACT API
 # -----------------------------------------
 @app.get("/extract")
 async def extract(url: str, user_id: str = None, cptoken: str = None):
 
+    # 1) user validity check (USER_VALIDITY वापरून)
     if not is_user_valid(user_id):
         return {"status": "not_allowed"}
 
-    async with httpx.AsyncClient(timeout=60) as client:
+    # 50 sec timeout client
+    async with httpx.AsyncClient(timeout=50) as client:
 
-        # CASE 1: Drago (url + token)
+        # -----------------------------
+        # DRAGO (if cptoken given)
+        # -----------------------------
         if cptoken:
             drago_url = f"https://dragoapi.vercel.app/classplus?link={url}&token={cptoken}"
             try:
                 res = await client.get(drago_url)
-                return {"classplus": res.json()}
-            except:
-                return {"classplus": "failed"}
+                data = res.json()
+                cleaned = clean_response(data)
+                if cleaned:
+                    return cleaned
+                return {"classplus": data}
+            except Exception:
+                return {"error": "Drago Failed"}
 
-        # CASE 2: Covercel (only url)
-        else:
+        # -----------------------------
+        # COVERCEL (try only with provided user_id)
+        # -----------------------------
+        if user_id:
             covercel_url = f"https://covercel.vercel.app/extract_keys?url={url}@bots_updatee&user_id={user_id}"
             try:
                 res = await client.get(covercel_url)
-                return {"classplus co": res.json()}
-            except:
-                return {"classplus co": "failed"}
+                data = res.json()
+                cleaned = clean_response(data)
+                if cleaned:
+                    return cleaned
+            except Exception:
+                # timeout / error → continue to head-mechale
+                pass
+
+        # -----------------------------
+        # HEAD-MECHALE (try SPECIAL_USER_LIST)
+        # -----------------------------
+        for sp_user in SPECIAL_USER_LIST:
+            head_url = (
+                "https://head-micheline-botupdatevip-f1804c58.koyeb.app/get_keys"
+                f"?url={url}@botupdatevip4u&user_id={sp_user}"
+            )
+
+            try:
+                res2 = await client.get(head_url)
+                hdata = res2.json()
+                cleaned = clean_response(hdata)
+                if cleaned:
+                    return cleaned
+            except Exception:
+                # try next special user
+                continue
+
+        # -----------------------------
+        # All attempts failed
+        # -----------------------------
+        return {"error": "Main Server Issue"}
