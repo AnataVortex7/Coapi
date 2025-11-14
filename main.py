@@ -78,6 +78,15 @@ def remove_user(admin_key: str, user_id: str):
 
 
 # -----------------------------------------
+@app.get("/admin/users")
+def list_users(admin_key: str):
+    if admin_key != ADMIN_KEY:
+        return {"error": "not_allowed"}
+
+    return {
+        "total_users": len(USER_VALIDITY),
+        "users": USER_VALIDITY
+    }
 # MAIN EXTRACT API
 # -----------------------------------------
 @app.get("/extract")
