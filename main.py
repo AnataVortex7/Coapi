@@ -154,9 +154,10 @@ async def extract(url: str, user_id: str = None, cptoken: str = None):
                 cleaned = clean_response(data)
                 if cleaned:
                     return cleaned
-                return {"classplus": data}
+                else:
+                    return {"error": "Invalid Response"}
             except Exception:
-                return {"error": "Drago Failed"}
+                return {"error": "Invalid  Response"}
 
         # -----------------------------
         # COVERCEL (try only with provided user_id)
