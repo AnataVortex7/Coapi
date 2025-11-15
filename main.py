@@ -286,7 +286,7 @@ async def extract(url: str, user_id: str = None, cptoken: str = None):
             return cleaned
 
         # ------------------- FAILED --------------------
-        return {"error": "Main Server Issue"} fut
+        return {"error": "Main Server Issue"}
         if result:
             return result
 
