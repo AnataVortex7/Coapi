@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 app = FastAPI()
 
 # Admin password
-ADMIN_KEY = "Akshay@1181"   # हे बदलून तुझं secret password टाक
+ADMIN_KEY = "akshay14332"   # हे बदलून तुझं secret password टाक
 
 # User → Expiry date
 USER_VALIDITY = {
