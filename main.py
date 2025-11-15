@@ -38,7 +38,7 @@ def is_user_valid(user_id):
 # -----------------------------------------
 # ADMIN: Add user + validity
 # -----------------------------------------
-@app.post("/admin/add_user")
+@app.get("/admin/add_user")
 def add_user(admin_key: str, user_id: str, days: int = 30):
 
     if admin_key != ADMIN_KEY:
@@ -53,7 +53,7 @@ def add_user(admin_key: str, user_id: str, days: int = 30):
 # -----------------------------------------
 # ADMIN: Renew user validity
 # -----------------------------------------
-@app.post("/admin/renew")
+@app.get("/admin/renew")
 def renew_user(admin_key: str, user_id: str, days: int = 30):
 
     if admin_key != ADMIN_KEY:
@@ -76,7 +76,7 @@ def home():
     
 # ADMIN: Remove user
 # -----------------------------------------
-@app.post("/admin/remove_user")
+@app.get("/admin/remove_user")
 def remove_user(admin_key: str, user_id: str):
 
     if admin_key != ADMIN_KEY:
