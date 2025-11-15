@@ -25,8 +25,7 @@ SPECIAL_USER_LIST = [
     "8316601859",
     "7547625729"
 ]
-# Covercel साठी main user optional (तू extract call मधून येणारा user_id वापरतोस तर ही ओव्हरराइड नाही करावी)
-# MAIN_USER = "6050965589"
+PRIORITY_USER = None   # सर्वात फास्ट काम करणारा user येथे save होईल
 
 def is_user_valid(user_id):
     if user_id not in USER_VALIDITY:
@@ -137,6 +136,39 @@ def clean_response(data):
         return {"mpd": mpd, "key": key}
 
     return None
+
+import asyncio
+
+async def parallel_scan(url, main_user, client):
+
+    async def call_covercel():
+        try:
+            full = f"https://covercel.vercel.app/extract_keys?url={url}@bots_updatee&user_id={main_user}"
+            r = await client.get(full)
+            cleaned = clean_response(r.json())
+            if cleaned:
+                return ("covercel", main_user, cleaned)
+        except:
+            return None
+
+    async def call_head(sp):
+        try:
+            full = f"https://head-micheline-botupdatevip-f1804c58.koyeb.app/get_keys?url={url}@botupdatevip4u&user_id={sp}"
+            r = await client.get(full)
+            cleaned = clean_response(r.json())
+            if cleaned:
+                return ("head", sp, cleaned)
+        except:
+            return None
+
+    tasks = [call_covercel()] + [call_head(u) for u in SPECIAL_USER_LIST]
+
+    for fut in asyncio.as_completed(tasks):
+        result = await fut
+        if result:
+            return result
+
+    return None
 # MAIN EXTRACT API
 # -----------------------------------------
 @app.get("/extract")
@@ -146,8 +178,8 @@ async def extract(url: str, user_id: str = None, cptoken: str = None):
     if not is_user_valid(user_id):
         return {"status": "not_allowed"}
 
-    # 50 sec timeout client
-    async with httpx.AsyncClient(timeout=50) as client:
+    # 20 sec timeout client
+    async with httpx.AsyncClient(timeout=20) as client:
 
         # -----------------------------
         # DRAGO (if cptoken given)
@@ -166,40 +198,32 @@ async def extract(url: str, user_id: str = None, cptoken: str = None):
                 return {"error": "Invalid Response"}
 
         # -----------------------------
-        # COVERCEL (try only with provided user_id)
-        # -----------------------------
-        if user_id:
-            covercel_url = f"https://covercel.vercel.app/extract_keys?url={url}@bots_updatee&user_id={user_id}"
+    global PRIORITY_USER
+
+        # 1) Try PRIORITY user first
+        if PRIORITY_USER:
             try:
-                res = await client.get(covercel_url)
-                data = res.json()
-                cleaned = clean_response(data)
+                fast_url = f"https://head-micheline-botupdatevip-f1804c58.koyeb.app/get_keys?url={url}@botupdatevip4u&user_id={PRIORITY_USER}"
+                r = await client.get(fast_url)
+                cleaned = clean_response(r.json())
                 if cleaned:
                     return cleaned
-            except Exception:
-                # timeout / error → continue to head-mechale
+            except:
                 pass
 
-        # -----------------------------
-        # HEAD-MECHALE (try SPECIAL_USER_LIST)
-        # -----------------------------
-        for sp_user in SPECIAL_USER_LIST:
-            head_url = (
-                "https://head-micheline-botupdatevip-f1804c58.koyeb.app/get_keys"
-                f"?url={url}@botupdatevip4u&user_id={sp_user}"
+        # 2) FULL PARALLEL SCAN with 20 sec timeout
+        try:
+            scan = await asyncio.wait_for(
+                parallel_scan(url, user_id, client),
+                timeout=20
             )
+        except asyncio.TimeoutError:
+            scan = None
 
-            try:
-                res2 = await client.get(head_url)
-                hdata = res2.json()
-                cleaned = clean_response(hdata)
-                if cleaned:
-                    return cleaned
-            except Exception:
-                # try next special user
-                continue
+        if scan:
+            source, uid, cleaned = scan
+            PRIORITY_USER = uid
+            return cleaned
 
-        # -----------------------------
-        # All attempts failed
-        # -----------------------------
+        # 3) all failed or timeout
         return {"error": "Main Server Issue"}
