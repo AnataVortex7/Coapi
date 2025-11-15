@@ -174,16 +174,16 @@ async def parallel_scan(url, main_user, client):
 @app.get("/extract")
 async def extract(url: str, user_id: str = None, cptoken: str = None):
 
-    # 1) user validity check (USER_VALIDITY वापरून)
+    # 1) user validity check
     if not is_user_valid(user_id):
         return {"status": "not_allowed"}
+
     global PRIORITY_USER
+
     # 20 sec timeout client
     async with httpx.AsyncClient(timeout=20) as client:
 
-        # -----------------------------
-        # DRAGO (if cptoken given)
-        # -----------------------------
+        # ------------- DRAGO (if cptoken given) -------------
         if cptoken:
             drago_url = f"https://dragoapi.vercel.app/classplus?link={url}&token={cptoken}"
             try:
@@ -194,14 +194,16 @@ async def extract(url: str, user_id: str = None, cptoken: str = None):
                     return cleaned
                 else:
                     return {"error": "Invalid Response"}
-            except Exception:
+            except:
                 return {"error": "Invalid Response"}
 
-        # -----------------------------
-        # 1) Try PRIORITY user first
+        # ------------- 1) Try PRIORITY user first -------------
         if PRIORITY_USER:
             try:
-                fast_url = f"https://head-micheline-botupdatevip-f1804c58.koyeb.app/get_keys?url={url}@botupdatevip4u&user_id={PRIORITY_USER}"
+                fast_url = (
+                    f"https://head-micheline-botupdatevip-f1804c58.koyeb.app/get_keys"
+                    f"?url={url}@botupdatevip4u&user_id={PRIORITY_USER}"
+                )
                 r = await client.get(fast_url)
                 cleaned = clean_response(r.json())
                 if cleaned:
@@ -209,7 +211,7 @@ async def extract(url: str, user_id: str = None, cptoken: str = None):
             except:
                 pass
 
-        # 2) FULL PARALLEL SCAN with 20 sec timeout
+        # ------------- 2) FULL PARALLEL SCAN (20 sec) -------------
         try:
             scan = await asyncio.wait_for(
                 parallel_scan(url, user_id, client),
@@ -220,8 +222,8 @@ async def extract(url: str, user_id: str = None, cptoken: str = None):
 
         if scan:
             source, uid, cleaned = scan
-            PRIORITY_USER = uid
+            PRIORITY_USER = uid  # winner set
             return cleaned
 
-        # 3) all failed or timeout
+        # ------------- 3) All failed -------------
         return {"error": "Main Server Issue"}
