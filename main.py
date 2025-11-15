@@ -177,7 +177,7 @@ async def extract(url: str, user_id: str = None, cptoken: str = None):
     # 1) user validity check (USER_VALIDITY वापरून)
     if not is_user_valid(user_id):
         return {"status": "not_allowed"}
-
+    global PRIORITY_USER
     # 20 sec timeout client
     async with httpx.AsyncClient(timeout=20) as client:
 
@@ -198,8 +198,6 @@ async def extract(url: str, user_id: str = None, cptoken: str = None):
                 return {"error": "Invalid Response"}
 
         # -----------------------------
-    global PRIORITY_USER
-
         # 1) Try PRIORITY user first
         if PRIORITY_USER:
             try:
