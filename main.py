@@ -164,7 +164,8 @@ async def parallel_scan(url, main_user, client):
     tasks = [call_covercel()] + [call_head(u) for u in SPECIAL_USER_LIST]
 
     for fut in asyncio.as_completed(tasks):
-        result = await# MAIN EXTRACT API
+        result = await
+         # MAIN EXTRACT API
 # -----------------------------------------
 @app.get("/extract")
 async def extract(url: str, user_id: str = None, cptoken: str = None):
