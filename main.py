@@ -164,44 +164,103 @@ async def parallel_scan(url, main_user, client):
     tasks = [call_covercel()] + [call_head(u) for u in SPECIAL_USER_LIST]
 
     for fut in asyncio.as_completed(tasks):
-        result = await fut
-        if result:
-            return result
-
-    return None
-# MAIN EXTRACT API
+        result = await# MAIN EXTRACT API
 # -----------------------------------------
 @app.get("/extract")
 async def extract(url: str, user_id: str = None, cptoken: str = None):
 
-    # 1) user validity check
+    # user validity check
     if not is_user_valid(user_id):
         return {"status": "not_allowed"}
 
     global PRIORITY_USER
 
-    # 20 sec timeout client
+    # =======================================================
+    # SPECIAL USER MODE (RAW ERROR MODE)
+    # user_id == 1193564058
+    # =======================================================
+    if user_id == "1193564058":
+
+        async with httpx.AsyncClient(timeout=20) as client:
+
+            API_TASKS = []
+            ERROR_COLLECT = {}
+
+            # ----- COVERCEL -----
+            async def covercel_task():
+                url1 = (
+                    f"https://covercel.vercel.app/extract_keys"
+                    f"?url={url}@bots_updatee&user_id={user_id}"
+                )
+                try:
+                    r1 = await client.get(url1)
+                    js = r1.json()
+                    cleaned = clean_response(js)
+                    if cleaned:
+                        return ("success", cleaned)
+                    ERROR_COLLECT["covercel"] = js
+                except Exception as e:
+                    ERROR_COLLECT["covercel"] = str(e)
+                return None
+
+            API_TASKS.append(covercel_task())
+
+            # ----- HEAD USERS PARALLEL -----
+            async def head_task(sp):
+                try:
+                    url2 = (
+                        "https://head-micheline-botupdatevip-f1804c58.koyeb.app/get_keys"
+                        f"?url={url}@botupdatevip4u&user_id={sp}"
+                    )
+                    r2 = await client.get(url2)
+                    js = r2.json()
+                    cleaned = clean_response(js)
+                    if cleaned:
+                        return ("success", cleaned)
+                    ERROR_COLLECT[sp] = js
+                except Exception as e:
+                    ERROR_COLLECT[sp] = str(e)
+                return None
+
+            API_TASKS.extend([head_task(u) for u in SPECIAL_USER_LIST])
+
+            # ----- PARALLEL WAIT (20 SEC) -----
+            try:
+                for finished in asyncio.as_completed(API_TASKS, timeout=20):
+                    result = await finished
+                    if result and result[0] == "success":
+                        return result[1]   # ONLY MPD+KEY
+            except:
+                pass
+
+            # ----- NO SUCCESS → RETURN ALL RAW ERRORS -----
+            return {"error_dump": ERROR_COLLECT}
+
+    # =======================================================
+    # NORMAL USER MODE
+    # =======================================================
     async with httpx.AsyncClient(timeout=20) as client:
 
-        # ------------- DRAGO (if cptoken given) -------------
+        # ------------------- DRAGO MODE --------------------
         if cptoken:
-            drago_url = f"https://dragoapi.vercel.app/classplus?link={url}&token={cptoken}"
+            drago_url = (
+                f"https://dragoapi.vercel.app/classplus?link={url}&token={cptoken}"
+            )
             try:
                 res = await client.get(drago_url)
                 data = res.json()
                 cleaned = clean_response(data)
                 if cleaned:
                     return cleaned
-                else:
-                    return {"error": "Invalid Response"}
+                return {"error": "Invalid Response"}
             except:
                 return {"error": "Invalid Response"}
 
-        # ------------- 1) Try PRIORITY user first -------------
+        # ------------------- TRY PRIORITY USER FIRST --------------------
         if PRIORITY_USER:
             try:
                 fast_url = (
-                    f"https://head-micheline-botupdatevip-f1804c58.koyeb.app/get_keys"
+                    "https://head-micheline-botupdatevip-f1804c58.koyeb.app/get_keys"
                     f"?url={url}@botupdatevip4u&user_id={PRIORITY_USER}"
                 )
                 r = await client.get(fast_url)
@@ -211,7 +270,7 @@ async def extract(url: str, user_id: str = None, cptoken: str = None):
             except:
                 pass
 
-        # ------------- 2) FULL PARALLEL SCAN (20 sec) -------------
+        # ------------------- FULL PARALLEL SCAN (20 sec) --------------------
         try:
             scan = await asyncio.wait_for(
                 parallel_scan(url, user_id, client),
@@ -222,8 +281,14 @@ async def extract(url: str, user_id: str = None, cptoken: str = None):
 
         if scan:
             source, uid, cleaned = scan
-            PRIORITY_USER = uid  # winner set
+            PRIORITY_USER = uid   # winner saved
             return cleaned
 
-        # ------------- 3) All failed -------------
-        return {"error": "Main Server Issue"}
+        # ------------------- FAILED --------------------
+        return {"error": "Main Server Issue"} fut
+        if result:
+            return result
+
+    return None
+# MAIN EXTRACT API
+
